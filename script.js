@@ -222,10 +222,10 @@ function closeCoursePopup() {
     localStorage.setItem('course_popup_hidden', new Date(Date.now() + 24*60*60*1000).toISOString());
 }
 
-window.onclick = function(event) {
+document.addEventListener('click', function(event) {
     const modal = document.getElementById('course-popup');
     if (event.target == modal) closeCoursePopup();
-}
+});
 
 async function loadPopup() {
     try {
@@ -275,3 +275,72 @@ async function loadPopup() {
 }
 
 loadPopup();
+
+
+
+// ===== GOOGLE SHEETS: COURSES =====
+
+const COURSES_URL = `https://opensheet.elk.sh/${SHEET_ID}/courses`;
+
+async function loadCourses() {
+    try {
+        const res = await fetch(COURSES_URL);
+        const courses = await res.json();
+
+        const grid = document.getElementById("courses-grid");
+        if (!grid) return;
+
+        grid.innerHTML = "";
+
+        courses
+            .filter(course => course.enabled === "TRUE")
+            .sort((a, b) => Number(a.order) - Number(b.order))
+            .forEach(course => {
+
+                const article = document.createElement("article");
+                article.className = "course-card reveal" +
+                    (course.featured === "TRUE" ? " course-card--featured" : "");
+
+                article.innerHTML = `
+                    <div class="course-icon">${course.icon || "📚"}</div>
+                    <div class="course-badge ${course.featured === "TRUE" ? "course-badge--gold" : ""}">
+                        ${course.badge || ""}
+                    </div>
+                    <h3>${course.title || ""}</h3>
+                    <p>${course.description || ""}</p>
+                    <ul class="course-features">
+                        ${course.feature1 ? `<li>${course.feature1}</li>` : ""}
+                        ${course.feature2 ? `<li>${course.feature2}</li>` : ""}
+                        ${course.feature3 ? `<li>${course.feature3}</li>` : ""}
+                        ${course.feature4 ? `<li>${course.feature4}</li>` : ""}
+                    </ul>
+                    <a href="${course.link || "#contact"}"
+                       class="btn ${course.featured === "TRUE" ? "btn-primary" : "btn-outline"}">
+                        ${course.button || "Записаться"}
+                    </a>
+                `;
+
+                grid.appendChild(article);
+
+                // Подключаем анимацию reveal для новых карточек
+                if ("IntersectionObserver" in window) {
+                    const observer = new IntersectionObserver((entries, obs) => {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                                entry.target.classList.add("active");
+                                obs.unobserve(entry.target);
+                            }
+                        });
+                    }, { threshold: 0.16 });
+                    observer.observe(article);
+                } else {
+                    article.classList.add("active");
+                }
+            });
+
+    } catch (error) {
+        console.error("Ошибка загрузки курсов:", error);
+    }
+}
+
+loadCourses();
