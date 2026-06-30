@@ -210,12 +210,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Логика всплывающего уведомления
+
+
+
+  // ===== GOOGLE SHEETS: popup =====
+const SHEET_ID = "1t49fUg7oV-28oQCGhM6a_iQTXIIrEZZMmax1PWSAZlw";
+const POPUP_URL = `https://opensheet.elk.sh/${SHEET_ID}/popup`;
+
 function closeCoursePopup() {
     document.getElementById('course-popup').classList.remove('active');
-    // Скрываем на 24 часа
-    const expiry = new Date(new Date().getTime() + 24 * 60 * 60 * 1000);
-    localStorage.setItem('course_popup_hidden', expiry.toISOString());
+    localStorage.setItem('course_popup_hidden', new Date(Date.now() + 24*60*60*1000).toISOString());
 }
 
 window.onclick = function(event) {
@@ -223,11 +227,51 @@ window.onclick = function(event) {
     if (event.target == modal) closeCoursePopup();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        const isHidden = localStorage.getItem('course_popup_hidden');
-        if (!isHidden || new Date() > new Date(isHidden)) {
-            document.getElementById('course-popup').classList.add('active');
+async function loadPopup() {
+    try {
+        const res  = await fetch(POPUP_URL);
+        const data = await res.json();
+        const c    = data[0];
+
+        if (!c || c.enabled !== "TRUE") return;
+
+        const hidden = localStorage.getItem('course_popup_hidden');
+        if (hidden && new Date() < new Date(hidden)) return;
+
+        // Заполняем данные из таблицы
+        document.querySelector('.cp-badge').textContent  = c.badge    || '🎓 Новый поток';
+        document.querySelector('.cp-title').textContent  = c.title    || '';
+        document.querySelector('.cp-desc').textContent   = c.desc     || '';
+        document.querySelector('.cp-seats').textContent  = c.seats    || '';
+
+        const rows = document.querySelectorAll('.cp-row span:last-child');
+        if (rows[0]) rows[0].textContent = c.start    || '';
+        if (rows[1]) rows[1].textContent = c.schedule || '';
+        if (rows[2]) rows[2].textContent = c.format   || 'Zoom';
+
+        const btn = document.querySelector('.cp-btn');
+        if (btn) {
+            btn.textContent = c.button || 'Записаться на пробный урок';
+            btn.href        = c.link   || '#contact';
         }
-    }, 7000); // Появится через 7 секунд
-});
+
+        const delay = parseInt(c.delay) || 7000;
+        setTimeout(() => {
+            const isHidden = localStorage.getItem('course_popup_hidden');
+            if (!isHidden || new Date() > new Date(isHidden)) {
+                document.getElementById('course-popup').classList.add('active');
+            }
+        }, delay);
+
+    } catch(e) {
+        // Если таблица недоступна — показываем popup со статичными данными через 7 сек
+        setTimeout(() => {
+            const isHidden = localStorage.getItem('course_popup_hidden');
+            if (!isHidden || new Date() > new Date(isHidden)) {
+                document.getElementById('course-popup').classList.add('active');
+            }
+        }, 7000);
+    }
+}
+
+loadPopup();
